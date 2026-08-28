@@ -1,48 +1,59 @@
 import streamlit as st
 import pandas as pd
-from streamlit_gsheets import GSheetsConnection
 
 # Page Setup
 st.set_page_config(page_title="PMS Dashboard Ultra Pro", layout="wide")
 st.title("🛡️ PMS Dashboard Ultra Pro")
 
-# Google Sheets se connection aur data caching
-# @st.cache_data ki wajah se data bar-bar load nahi hoga, making it ultra-fast!
+# Direct Data Loading Method (No extra connection library needed)
 @st.cache_data(ttl=600)
 def load_data():
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    # Apni Master Sheet ka URL yahan dalein
-    df = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/1OhVynPQC2-ZbeH47bSOG2vPms_R71M3398Fs1kXSfok/edit", worksheet="MasterData")
+    sheet_id = "1OhVynPQC2-ZbeH47bSOG2vPms_R71M3398Fs1kXSfok"
+    
+    # AGAR AAPKI SHEET KE NAAM ME SPACE HAI TOH ISE "Master Data" KAR DEIN
+    sheet_name = "MasterData" 
+    
+    url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+    df = pd.read_csv(url)
     return df
 
 with st.spinner("Fetching Master Data..."):
-    df = load_data()
+    try:
+        df = load_data()
+    except Exception as e:
+        st.error(f"❌ Data load hone me problem aayi. Check karein ki Google Sheet me niche tab ka naam exact 'MasterData' hi hai na? Error: {e}")
+        st.stop()
 
 # --- FILTERS ---
 col1, col2, col3 = st.columns([1, 2, 1])
 with col1:
-    fy_filter = st.selectbox("FY Select", df['FY'].unique())
+    fy_list = df['FY'].dropna().unique() if 'FY' in df.columns else []
+    fy_filter = st.selectbox("FY Select", fy_list)
 with col2:
     search_term = st.text_input("Global Search (Txn, Name, Desc)")
 with col3:
-    cat_filter = st.selectbox("Category", ["All"] + list(df['Category'].dropna().unique()))
+    cat_list = ["All"] + list(df['Category'].dropna().unique()) if 'Category' in df.columns else ["All"]
+    cat_filter = st.selectbox("Category", cat_list)
 
 # Apply Filters
-filtered_df = df[df['FY'] == fy_filter]
+if 'FY' in df.columns:
+    filtered_df = df[df['FY'] == fy_filter]
+else:
+    filtered_df = df
+
 if search_term:
-    # Search across multiple columns
     filtered_df = filtered_df[filtered_df.apply(lambda row: row.astype(str).str.contains(search_term, case=False).any(), axis=1)]
-if cat_filter != "All":
+if cat_filter != "All" and 'Category' in df.columns:
     filtered_df = filtered_df[filtered_df['Category'] == cat_filter]
 
-# --- PIVOT TABLE (JS code ka Python alternative) ---
+# --- PIVOT TABLE ---
 st.subheader("📊 Category vs Month Summary")
-if not filtered_df.empty:
+if not filtered_df.empty and 'Category' in df.columns and 'Date' in df.columns and 'Bank Amount' in df.columns:
     pivot_df = pd.pivot_table(
         filtered_df, 
         values='Bank Amount', 
         index='Category', 
-        columns='Date', # Aap yahan Month column use kar sakte hain
+        columns='Date', 
         aggfunc='sum', 
         fill_value=0
     )
