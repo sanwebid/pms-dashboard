@@ -12,7 +12,7 @@ st.title("🛡️ PMS Dashboard Ultra Pro")
 def load_data():
     conn = st.connection("gsheets", type=GSheetsConnection)
     # Apni Master Sheet ka URL yahan dalein
-    df = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/1OhVynPQC2-ZbeH47bSOG2vPms_R71M3398Fs1kXSfok/edit")
+   df = conn.read(spreadsheet="https://docs.google.com/spreadsheets/d/1OhVynPQC2-ZbeH47bSOG2vPms_R71M3398Fs1kXSfok/edit", worksheet="MasterData")
     return df
 
 with st.spinner("Fetching Master Data..."):
