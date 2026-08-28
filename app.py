@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import re
 
 # Page Setup
 st.set_page_config(page_title="PMS Dashboard Ultra Pro", layout="wide")
@@ -15,12 +14,14 @@ def load_data():
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
     df = pd.read_csv(url)
     
-    # FIX: "Bank Amount" ko Text se Number (Float) mein convert karna
+    # Text Amount ko Number mein convert karna
     if 'Bank Amount' in df.columns:
-        # Commas aur non-numeric characters ko remove karna (Aapke original code ki tarah)
         df['Bank Amount'] = df['Bank Amount'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
-        # Numbers mein badalna, jo convert na ho unhe 0 karna
         df['Bank Amount'] = pd.to_numeric(df['Bank Amount'], errors='coerce').fillna(0.0)
+        
+    # FIX: Blank Categories ko wapas lana
+    if 'Category' in df.columns:
+        df['Category'] = df['Category'].fillna('BLANK').replace(r'^\s*$', 'BLANK', regex=True)
         
     return df
 
@@ -54,7 +55,6 @@ if cat_filter != "All" and 'Category' in df.columns:
     filtered_df = filtered_df[filtered_df['Category'] == cat_filter]
 
 # --- PIVOT TABLE ---
-# --- PIVOT TABLE ---
 st.subheader("📊 Category vs Month Summary")
 if not filtered_df.empty and 'Category' in df.columns and 'Source' in df.columns and 'Bank Amount' in df.columns:
     try:
@@ -62,10 +62,30 @@ if not filtered_df.empty and 'Category' in df.columns and 'Source' in df.columns
             filtered_df, 
             values='Bank Amount', 
             index='Category', 
-            columns='Source', # Yahan 'Date' ki jagah 'Source' aayega
+            columns='Source', 
             aggfunc='sum', 
             fill_value=0
         )
+        
+        # FIX: Mahino (Months) ko Financial Year ke sequence mein sort karna
+        month_mapping = {
+            "apr": 1, "may": 2, "jun": 3, "jul": 4, "aug": 5, "sep": 6, 
+            "oct": 7, "nov": 8, "dec": 9, "jan": 10, "feb": 11, "mar": 12
+        }
+        
+        def sort_fy_months(col_name):
+            col_str = str(col_name).strip().lower()
+            for month_name, order in month_mapping.items():
+                if col_str.startswith(month_name):
+                    return order
+            return 99 # Default for unexpected columns
+            
+        sorted_columns = sorted(pivot_df.columns, key=sort_fy_months)
+        pivot_df = pivot_df[sorted_columns]
+        
+        # FIX: Grand Total Column Add karna
+        pivot_df['Grand Total'] = pivot_df.sum(axis=1)
+        
         st.dataframe(pivot_df, use_container_width=True)
     except Exception as e:
         st.warning(f"Pivot table banane mein dikkat aayi: {e}")
