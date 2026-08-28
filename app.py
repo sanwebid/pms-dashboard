@@ -1,27 +1,34 @@
 import streamlit as st
 import pandas as pd
+import re
 
 # Page Setup
 st.set_page_config(page_title="PMS Dashboard Ultra Pro", layout="wide")
 st.title("🛡️ PMS Dashboard Ultra Pro")
 
-# Direct Data Loading Method (No extra connection library needed)
+# Direct Data Loading Method
 @st.cache_data(ttl=600)
 def load_data():
     sheet_id = "1OhVynPQC2-ZbeH47bSOG2vPms_R71M3398Fs1kXSfok"
-    
-    # AGAR AAPKI SHEET KE NAAM ME SPACE HAI TOH ISE "Master Data" KAR DEIN
     sheet_name = "MasterData" 
     
     url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
     df = pd.read_csv(url)
+    
+    # FIX: "Bank Amount" ko Text se Number (Float) mein convert karna
+    if 'Bank Amount' in df.columns:
+        # Commas aur non-numeric characters ko remove karna (Aapke original code ki tarah)
+        df['Bank Amount'] = df['Bank Amount'].astype(str).str.replace(r'[^\d.-]', '', regex=True)
+        # Numbers mein badalna, jo convert na ho unhe 0 karna
+        df['Bank Amount'] = pd.to_numeric(df['Bank Amount'], errors='coerce').fillna(0.0)
+        
     return df
 
 with st.spinner("Fetching Master Data..."):
     try:
         df = load_data()
     except Exception as e:
-        st.error(f"❌ Data load hone me problem aayi. Check karein ki Google Sheet me niche tab ka naam exact 'MasterData' hi hai na? Error: {e}")
+        st.error(f"❌ Data load hone me problem aayi. Error: {e}")
         st.stop()
 
 # --- FILTERS ---
@@ -49,15 +56,18 @@ if cat_filter != "All" and 'Category' in df.columns:
 # --- PIVOT TABLE ---
 st.subheader("📊 Category vs Month Summary")
 if not filtered_df.empty and 'Category' in df.columns and 'Date' in df.columns and 'Bank Amount' in df.columns:
-    pivot_df = pd.pivot_table(
-        filtered_df, 
-        values='Bank Amount', 
-        index='Category', 
-        columns='Date', 
-        aggfunc='sum', 
-        fill_value=0
-    )
-    st.dataframe(pivot_df, use_container_width=True)
+    try:
+        pivot_df = pd.pivot_table(
+            filtered_df, 
+            values='Bank Amount', 
+            index='Category', 
+            columns='Date', 
+            aggfunc='sum', 
+            fill_value=0
+        )
+        st.dataframe(pivot_df, use_container_width=True)
+    except Exception as e:
+        st.warning(f"Pivot table banane mein dikkat aayi: {e}")
 
 # --- DETAILED TRANSACTIONS TABLE ---
 st.subheader("📝 Filtered Transactions")
