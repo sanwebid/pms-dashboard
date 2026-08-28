@@ -54,14 +54,15 @@ if cat_filter != "All" and 'Category' in df.columns:
     filtered_df = filtered_df[filtered_df['Category'] == cat_filter]
 
 # --- PIVOT TABLE ---
+# --- PIVOT TABLE ---
 st.subheader("📊 Category vs Month Summary")
-if not filtered_df.empty and 'Category' in df.columns and 'Date' in df.columns and 'Bank Amount' in df.columns:
+if not filtered_df.empty and 'Category' in df.columns and 'Source' in df.columns and 'Bank Amount' in df.columns:
     try:
         pivot_df = pd.pivot_table(
             filtered_df, 
             values='Bank Amount', 
             index='Category', 
-            columns='Date', 
+            columns='Source', # Yahan 'Date' ki jagah 'Source' aayega
             aggfunc='sum', 
             fill_value=0
         )
