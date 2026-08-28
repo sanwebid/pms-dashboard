@@ -94,7 +94,7 @@ if not pivot_source_df.empty and 'Category' in df.columns and 'Source' in df.col
         
         # Month Sequencing
         month_mapping = {
-            "apr": 1, "may": 2, "jun": 3, "jul": 4, "aug": 5, "sep": 6, 
+            "apr": 1, "may": 2, "jun": 3, "jul": 4, "aug": 5, "sept": 6, 
             "oct": 7, "nov": 8, "dec": 9, "jan": 10, "feb": 11, "mar": 12
         }
         
